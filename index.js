@@ -1,4 +1,4 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
@@ -43,6 +43,23 @@ app.get("/exploreStudios", async (req, res) => {
   const result = await addDataCollection.find().toArray();
   res.send(result);
 });
+
+
+// details pages api toiri
+
+
+app.get('/studios/:id', async (req,res)=>{
+  const {id} = req.params
+  const result = await  addDataCollection.findOne({_id: new ObjectId(id)})
+  
+  res.send(result)
+
+});
+
+
+
+
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
