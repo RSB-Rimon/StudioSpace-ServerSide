@@ -22,6 +22,10 @@ export async function connectToMongoDB() {
 const mongoClient = await connectToMongoDB();
 const db = mongoClient.db("studiospase");
 const addDataCollection = db.collection("addnewstudio");
+
+
+
+
 // mongoDbname: studiospase
 
 app.get("/", (req, res) => {
@@ -56,9 +60,77 @@ app.get('/studios/:id', async (req,res)=>{
 
 });
 
+// update datar jonno api
+
+app.patch('/studios/:id', async (req, res) => {
+  const { id } = req.params;
+  const updateData = req.body;
+
+  const result = await addDataCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updateData }
+  );
+
+  res.send(result);
+});
+
+// delete operation
+// url : http://localhost:5000/studios/:id
+app.delete('/studios/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const result = await addDataCollection.deleteOne({ _id: new ObjectId(id) });
+
+  res.json(result);
+}); 
 
 
+app.post("/booking", async (req, res) => {
+  try {
+    const bookingData = req.body;
+    const bookingCollection = db.collection("bookings");
 
+    // Check if studio is already booked
+    const existingBooking = await bookingCollection.findOne({
+      studioId: bookingData.studioId,
+    });
+
+    if (existingBooking) {
+      return res.status(409).send({
+        message: "This studio is already booked!",
+      });
+    }
+
+    // Insert new booking
+    const result = await bookingCollection.insertOne(bookingData);
+
+    res.status(201).send({
+      acknowledged: true,
+      insertedId: result.insertedId,
+      message: "Booking successful!",
+    });
+
+  } catch (error) {
+    console.error("Booking Error:", error);
+
+    res.status(500).send({
+      message: "Failed to create booking",
+    });
+  }
+});
+
+
+app.get("/my-bookings", async (req, res) => {
+  const email = req.query.email;
+
+  const bookingCollection = db.collection("bookings");
+
+  const result = await bookingCollection
+    .find({ customerEmail: email })
+    .toArray();
+
+  res.send(result);
+});
 
 
 app.listen(port, () => {
