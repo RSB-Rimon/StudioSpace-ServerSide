@@ -27,6 +27,19 @@ const addDataCollection = db.collection("addnewstudio");
 
 
 // mongoDbname: studiospase
+// verify middleware function to check for authorization header
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== "User logged in") {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+  console.log("i am")
+  next();
+}
+
+
+
+
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
@@ -52,7 +65,7 @@ app.get("/exploreStudios", async (req, res) => {
 // details pages api toiri
 
 
-app.get('/studios/:id', async (req,res)=>{
+app.get('/studios/:id', verifyToken, async (req,res)=>{
   const {id} = req.params
   const result = await  addDataCollection.findOne({_id: new ObjectId(id)})
   
@@ -62,7 +75,7 @@ app.get('/studios/:id', async (req,res)=>{
 
 // update datar jonno api
 
-app.patch('/studios/:id', async (req, res) => {
+app.patch('/studios/:id',  async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
 
