@@ -71,8 +71,8 @@ app.get("/", (req, res) => {
 
 // post operation
 // api url http://localhost:5000/add-studios
-app.post("/add-studios", async (req, res) => {
-  const data = req.body;
+app.post("/add-studios", verifyToken, async (req, res) => {
+  const data = req.body; 
   const result = await addDataCollection.insertOne(data);
   console.log(result);
   res.send(result);
@@ -93,13 +93,13 @@ app.get('/studios/:id', verifyToken, async (req,res)=>{
   const {id} = req.params
   const result = await  addDataCollection.findOne({_id: new ObjectId(id)})
   
-  res.send(result)
+  res.send(result)  
 
 });
 
 // update datar jonno api
 
-app.patch('/studios/:id',  async (req, res) => {
+app.patch('/studios/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
 
@@ -113,7 +113,7 @@ app.patch('/studios/:id',  async (req, res) => {
 
 // delete operation
 // url : http://localhost:5000/studios/:id
-app.delete('/studios/:id', async (req, res) => {
+app.delete('/studios/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
 
   const result = await addDataCollection.deleteOne({ _id: new ObjectId(id) });
@@ -122,7 +122,7 @@ app.delete('/studios/:id', async (req, res) => {
 }); 
 
 
-app.post("/booking", async (req, res) => {
+app.post("/booking", verifyToken, async (req, res) => {
   try {
     const bookingData = req.body;
     const bookingCollection = db.collection("bookings");
@@ -157,7 +157,7 @@ app.post("/booking", async (req, res) => {
 });
 
 
-app.get("/my-bookings", async (req, res) => {
+app.get("/my-bookings", verifyToken, async (req, res) => {
   const email = req.query.email;
 
   const bookingCollection = db.collection("bookings");
