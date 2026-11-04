@@ -2,6 +2,7 @@ import { MongoClient, ObjectId } from "mongodb";
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 const app = express();
 const port = 5000;
 
@@ -28,20 +29,38 @@ const addDataCollection = db.collection("addnewstudio");
 
 // mongoDbname: studiospase
 // verify middleware function to check for authorization header
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader !== "User logged in") {
-    return res.status(401).send({ message: "Unauthorized access" });
-  }
 
-  const token = authHeader.split(" ")[1];
-  if(!token) {
-    return res.status(401).send({ message: "Unauthorized access" });
-  }
-  console.log("Token:", token); // Log the token for debugging purposes
-  next();
-}
+const verifyToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
 
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).send({
+        message: "Unauthorized access",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    const JWKS = createRemoteJWKSet(
+      new URL("http://localhost:3000/api/auth/jwks")
+    );
+
+    const { payload } = await jwtVerify(token, JWKS);
+
+    console.log("Verified Payload:", payload);
+
+    req.user = payload;
+
+    next();
+  } catch (error) {
+    console.error("Token verification failed:", error.message);
+
+    return res.status(401).send({
+      message: "Unauthorized access",
+    });
+  }
+};
 
 
 
