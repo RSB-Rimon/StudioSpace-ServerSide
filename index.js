@@ -33,7 +33,12 @@ const verifyToken = (req, res, next) => {
   if (authHeader !== "User logged in") {
     return res.status(401).send({ message: "Unauthorized access" });
   }
-  console.log("i am")
+
+  const token = authHeader.split(" ")[1];
+  if(!token) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+  console.log("Token:", token); // Log the token for debugging purposes
   next();
 }
 
