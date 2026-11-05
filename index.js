@@ -1,8 +1,10 @@
+
 import { MongoClient, ObjectId } from "mongodb";
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+
 const app = express();
 const port = 5000;
 
@@ -10,6 +12,7 @@ app.use(express.json());
 app.use(cors());
 
 const client = new MongoClient(process.env.MONGODB_URI);
+
 export async function connectToMongoDB() {
   try {
     await client.connect();
@@ -24,12 +27,7 @@ const mongoClient = await connectToMongoDB();
 const db = mongoClient.db("studiospase");
 const addDataCollection = db.collection("addnewstudio");
 
-
-
-
-// mongoDbname: studiospase
-// verify middleware function to check for authorization header
-
+// Verify middleware function to check authorization header
 const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -62,72 +60,137 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-
-
-
+// Home route
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-// post operation
-// api url http://localhost:5000/add-studios
+
+// ADD STUDIO
+
+
+// API URL: http://localhost:5000/add-studios
 app.post("/add-studios", verifyToken, async (req, res) => {
-  const data = req.body; 
-  const result = await addDataCollection.insertOne(data);
-  console.log(result);
-  res.send(result);
+  try {
+    const data = {
+      ...req.body,
+
+      // UPDATED: Login করা Owner-এর Email Save করা হচ্ছে
+      ownerEmail: req.user.email,
+    };
+
+    const result = await addDataCollection.insertOne(data);
+
+    res.status(201).send(result);
+  } catch (error) {
+    res.status(500).send({
+      message: "Failed to add studio",
+    });
+  }
 });
 
-// get explore studios
-// url : http://localhost:5000/exploreStudios
+
+// EXPLORE STUDIOS
+
+
 app.get("/exploreStudios", async (req, res) => {
   const result = await addDataCollection.find().toArray();
   res.send(result);
 });
 
+// NEW: MY STUDIO LISTINGS
 
-// details pages api toiri
 
+// NEW: শুধু Login করা Owner-এর Studio দেখাবে
+// API URL: http://localhost:5000/my-studios
+app.get("/my-studios", verifyToken, async (req, res) => {
+  try {
+    const result = await addDataCollection
+      .find({
+        ownerEmail: req.user.email,
+      })
+      .toArray();
 
-app.get('/studios/:id', verifyToken, async (req,res)=>{
-  const {id} = req.params
-  const result = await  addDataCollection.findOne({_id: new ObjectId(id)})
-  
-  res.send(result)  
-
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({
+      message: "Failed to get my studios",
+    });
+  }
 });
 
-// update datar jonno api
 
-app.patch('/studios/:id', verifyToken, async (req, res) => {
+// STUDIO DETAILS
+
+
+app.get("/studios/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
-  const updateData = req.body;
 
-  const result = await addDataCollection.updateOne(
-    { _id: new ObjectId(id) },
-    { $set: updateData }
-  );
+  const result = await addDataCollection.findOne({
+    _id: new ObjectId(id),
+  });
 
   res.send(result);
 });
 
-// delete operation
-// url : http://localhost:5000/studios/:id
-app.delete('/studios/:id', verifyToken, async (req, res) => {
+// UPDATE STUDIO
+
+
+app.patch("/studios/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
 
-  const result = await addDataCollection.deleteOne({ _id: new ObjectId(id) });
+  // UPDATED: Owner Email দিয়ে Ownership Verify করা হচ্ছে
+  const result = await addDataCollection.updateOne(
+    {
+      _id: new ObjectId(id),
+      ownerEmail: req.user.email, // UPDATED
+    },
+    {
+      $set: req.body,
+    }
+  );
 
-  res.json(result);
-}); 
+  // NEW: অন্য Owner-এর Studio Edit করতে পারবে না
+  if (result.matchedCount === 0) {
+    return res.status(403).send({
+      message: "You cannot edit this studio",
+    });
+  }
 
+  res.send(result);
+});
+
+// DELETE STUDIO
+
+
+// API URL: http://localhost:5000/studios/:id
+app.delete("/studios/:id", verifyToken, async (req, res) => {
+  const { id } = req.params;
+
+  // UPDATED: শুধু নিজের Studio Delete করতে পারবে
+  const result = await addDataCollection.deleteOne({
+    _id: new ObjectId(id),
+    ownerEmail: req.user.email, // UPDATED
+  });
+
+  // NEW: অন্য Owner-এর Studio Delete করতে পারবে না
+  if (result.deletedCount === 0) {
+    return res.status(403).send({
+      message: "You cannot delete this studio",
+    });
+  }
+
+  res.send(result);
+});
+
+
+// BOOKING
 
 app.post("/booking", verifyToken, async (req, res) => {
   try {
     const bookingData = req.body;
     const bookingCollection = db.collection("bookings");
 
-    // Check if studio is already booked
     const existingBooking = await bookingCollection.findOne({
       studioId: bookingData.studioId,
     });
@@ -138,7 +201,6 @@ app.post("/booking", verifyToken, async (req, res) => {
       });
     }
 
-    // Insert new booking
     const result = await bookingCollection.insertOne(bookingData);
 
     res.status(201).send({
@@ -146,7 +208,6 @@ app.post("/booking", verifyToken, async (req, res) => {
       insertedId: result.insertedId,
       message: "Booking successful!",
     });
-
   } catch (error) {
     console.error("Booking Error:", error);
 
@@ -157,22 +218,30 @@ app.post("/booking", verifyToken, async (req, res) => {
 });
 
 
+// MY BOOKINGS
+
+
 app.get("/my-bookings", verifyToken, async (req, res) => {
-  const email = req.query.email;
+  // UPDATED: Query Email-এর পরিবর্তে Verified Token-এর Email ব্যবহার
+  const email = req.user.email;
 
   const bookingCollection = db.collection("bookings");
 
   const result = await bookingCollection
-    .find({ customerEmail: email })
+    .find({
+      customerEmail: email,
+    })
     .toArray();
 
   res.send(result);
 });
 
 
+// SERVER
+
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
-
 
 export default app;
